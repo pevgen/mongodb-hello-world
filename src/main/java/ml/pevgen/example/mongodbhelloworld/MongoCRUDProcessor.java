@@ -22,29 +22,19 @@ import static com.mongodb.client.model.Filters.*;
 public class MongoCRUDProcessor {
 
     private static final String COLLECTION_NAME_ACCOUNTS = "accounts";
-    private static final String DATABASE_NAME = "Cluster0";//"test";
+    private static final String DATABASE_NAME = "test";
 
 
     private final MongoClient mongoClient;
 
     public MongoCRUDProcessor(MongoClient mongoClient) {
         this.mongoClient = mongoClient;
-
-        ListCollectionsIterable<Document> list = mongoClient.getDatabase(DATABASE_NAME).listCollections();
-        for (var c : list) {
-            System.out.println(c);
-        }
-        createCollection();
     }
 
-    private void createCollection() {
-        mongoClient.getDatabase(DATABASE_NAME)
-                .createCollection(COLLECTION_NAME_ACCOUNTS);
-    }
 
-    public void insertOne() {
+    public BsonValue insertOne() {
         MongoDatabase database = mongoClient.getDatabase(DATABASE_NAME);
-        MongoCollection<Document> collection = database.getCollection("inspections");
+        MongoCollection<Document> collection = database.getCollection(COLLECTION_NAME_ACCOUNTS);
         Document inspection = new Document("_id", new ObjectId())
                 .append("id", "10021-2015-ENFO")
                 .append("certificate_number", 9278806)
@@ -56,9 +46,10 @@ public class MongoCRUDProcessor {
         InsertOneResult result = collection.insertOne(inspection);
         BsonValue id = result.getInsertedId();
         System.out.println(id);
+        return id;
     }
 
-    public void insertMany() {
+    public int insertMany() {
         MongoDatabase database = mongoClient.getDatabase(DATABASE_NAME);
         MongoCollection<Document> collection = database.getCollection(COLLECTION_NAME_ACCOUNTS);
         Document doc1 = new Document().append("account_holder", "john doe").append("account_id", "MDB99115881").append("balance", 1785).append("account_type", "checking");
@@ -67,6 +58,7 @@ public class MongoCRUDProcessor {
         InsertManyResult result = collection.insertMany(accounts);
         result.getInsertedIds()
                 .forEach((x, y) -> System.out.println(y.asObjectId()));
+        return result.getInsertedIds().size();
     }
 
     public void updateOne() {
@@ -142,7 +134,7 @@ public class MongoCRUDProcessor {
 
         final ClientSession clientSession = mongoClient.startSession();
 
-        TransactionBody txnBody = (TransactionBody<String>) () -> {
+        TransactionBody<String> txnBody = () -> {
             MongoCollection<Document> bankingCollection =
                     mongoClient.getDatabase(DATABASE_NAME)
                             .getCollection(COLLECTION_NAME_ACCOUNTS);

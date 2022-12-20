@@ -15,7 +15,6 @@ public class Main {
             System.out.println("Hello world! database: " + database);
             MongoCollection<Document> col = database.getCollection("test");
             System.out.println("col = " + col.find().first());
-
         }
     }
 }

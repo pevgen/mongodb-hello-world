@@ -31,10 +31,13 @@ public class MongoCRUDProcessor {
         this.mongoClient = mongoClient;
     }
 
+    public long getCollectionDocumentCount() {
+        MongoCollection<Document> collection = getMongoCollection();
+        return collection.countDocuments();
+    }
 
     public BsonValue insertOne() {
-        MongoDatabase database = mongoClient.getDatabase(DATABASE_NAME);
-        MongoCollection<Document> collection = database.getCollection(COLLECTION_NAME_ACCOUNTS);
+        MongoCollection<Document> collection = getMongoCollection();
         Document inspection = new Document("_id", new ObjectId())
                 .append("id", "10021-2015-ENFO")
                 .append("certificate_number", 9278806)
@@ -44,47 +47,39 @@ public class MongoCRUDProcessor {
                 .append("sector", "Cigarette Retail Dealer - 127")
                 .append("address", new Document().append("city", "RIDGEWOOD").append("zip", 11385).append("street", "MENAHAN ST").append("number", 1712));
         InsertOneResult result = collection.insertOne(inspection);
-        BsonValue id = result.getInsertedId();
-        System.out.println(id);
-        return id;
+        return result.getInsertedId();
     }
 
     public int insertMany() {
-        MongoDatabase database = mongoClient.getDatabase(DATABASE_NAME);
-        MongoCollection<Document> collection = database.getCollection(COLLECTION_NAME_ACCOUNTS);
+        MongoCollection<Document> collection = getMongoCollection();
         Document doc1 = new Document().append("account_holder", "john doe").append("account_id", "MDB99115881").append("balance", 1785).append("account_type", "checking");
         Document doc2 = new Document().append("account_holder", "jane doe").append("account_id", "MDB79101843").append("balance", 1468).append("account_type", "checking");
         List<Document> accounts = List.of(doc1, doc2);
         InsertManyResult result = collection.insertMany(accounts);
-        result.getInsertedIds()
-                .forEach((x, y) -> System.out.println(y.asObjectId()));
         return result.getInsertedIds().size();
     }
 
-    public void updateOne() {
-        MongoDatabase database = mongoClient.getDatabase(DATABASE_NAME);
-        MongoCollection<Document> collection = database.getCollection(COLLECTION_NAME_ACCOUNTS);
+    public long updateOne() {
+        MongoCollection<Document> collection = getMongoCollection();
         Bson query = Filters.eq("account_id", "MDB12234728");
         Bson updates = Updates.combine(Updates.set("account_status", "active"), Updates.inc("balance", 100));
         UpdateResult upResult = collection.updateOne(query, updates);
-        System.out.println(upResult.getModifiedCount());
+        return upResult.getModifiedCount();
     }
 
-    public void updateMany() {
+    public long updateMany() {
 
-        MongoDatabase database = mongoClient.getDatabase(DATABASE_NAME);
-        MongoCollection<Document> collection = database.getCollection(COLLECTION_NAME_ACCOUNTS);
+        MongoCollection<Document> collection = getMongoCollection();
         Bson query = Filters.eq("account_type", "savings");
         Bson updates = Updates.combine(Updates.set("minimum_balance", 100));
         UpdateResult upResult = collection.updateMany(query, updates);
-        System.out.println(upResult.getModifiedCount());
+        return upResult.getModifiedCount();
     }
 
 
-    public void findMany() {
-
-        MongoDatabase database = mongoClient.getDatabase(DATABASE_NAME);
-        MongoCollection<Document> collection = database.getCollection(COLLECTION_NAME_ACCOUNTS);
+    public long findMany() {
+        long count = 0;
+        MongoCollection<Document> collection = getMongoCollection();
         try (MongoCursor<Document> cursor = collection.find(
                         and(
                                 gte("balance", 1000),
@@ -92,40 +87,42 @@ public class MongoCRUDProcessor {
                 )
                 .iterator()) {
             while (cursor.hasNext()) {
-                System.out.println(cursor.next().toJson());
+                cursor.next().toJson();
+                count++;
             }
         }
+        return count;
     }
 
-    public void findOne() {
-        MongoDatabase database = mongoClient.getDatabase(DATABASE_NAME);
-        MongoCollection<Document> collection = database.getCollection(COLLECTION_NAME_ACCOUNTS);
-        Document doc = collection.find(
+    public Document findOne() {
+        MongoCollection<Document> collection = getMongoCollection();
+        return collection.find(
                         and(
                                 gte("balance", 1000),
                                 eq("account_type", "checking")))
                 .first();
-        System.out.println(doc.toJson());
     }
 
-    public void deleteOne() {
-
-        MongoDatabase database = mongoClient.getDatabase(DATABASE_NAME);
-        MongoCollection<Document> collection = database.getCollection(COLLECTION_NAME_ACCOUNTS);
+    public long deleteOne() {
+        MongoCollection<Document> collection = getMongoCollection();
         Bson query = Filters.eq("account_holder", "john doe");
         DeleteResult delResult = collection.deleteOne(query);
-        System.out.println("Deleted a document:");
-        System.out.println("\t" + delResult.getDeletedCount());
-
+        return delResult.getDeletedCount();
     }
 
-    public void deleteMany() {
-        MongoDatabase database = mongoClient.getDatabase(DATABASE_NAME);
-        MongoCollection<Document> collection = database.getCollection(COLLECTION_NAME_ACCOUNTS);
-        Bson query = eq("account_status", "dormant");
+    public long deleteMany() {
+        MongoCollection<Document> collection = getMongoCollection();
+        Bson query = eq("account_type", "checking");
         DeleteResult delResult = collection.deleteMany(query);
-        System.out.println(delResult.getDeletedCount());
+        return delResult.getDeletedCount();
     }
+
+    public long deleteAll() {
+        MongoCollection<Document> collection = getMongoCollection();
+        DeleteResult delResult = collection.deleteMany(new Document());
+        return delResult.getDeletedCount();
+    }
+
 
     /**
      * default - 60 sec transaction timeout
@@ -163,4 +160,8 @@ public class MongoCRUDProcessor {
 
     }
 
+    private MongoCollection<Document> getMongoCollection() {
+        MongoDatabase database = mongoClient.getDatabase(DATABASE_NAME);
+        return database.getCollection(COLLECTION_NAME_ACCOUNTS);
+    }
 }
